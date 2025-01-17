@@ -1,0 +1,30 @@
+{
+  "name": "cv-toolbox",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "webpack --mode=development --config build.config.js --watch",
+    "build": "webpack --config build.config.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "clean-webpack-plugin": "^4.0.0",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "less": "^4.2.1",
+    "less-loader": "^12.2.0",
+    "style-loader": "^4.0.0",
+    "vue-loader": "^17.4.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@vue/runtime-dom": "^3.5.13",
+    "express": "^4.21.2",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  }
+}

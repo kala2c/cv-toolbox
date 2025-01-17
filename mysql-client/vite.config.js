@@ -5,8 +5,11 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { lazyImport, VxeResolver } from "vite-plugin-lazy-import";
 
-// https://vite.dev/config/
 export default defineConfig({
+  base: './',
+  build: {
+    outDir: '../base-app/public/mysql-client',
+  },
   plugins: [
     vue(),
     vueDevTools(),

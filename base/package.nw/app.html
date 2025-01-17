@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>CV工具箱</title>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// 增加nodejs环境兼容性
+// nwjs缺失这些全局变量 但是部分包依赖
+const __dirname = './';
+const __filename = '';
+const setImmediate = function (func, ms) {
+    return setTimeout(func, ms);
+}
+</script>
+<script src="./bundle.js"></script>
+</body>
+</html>
