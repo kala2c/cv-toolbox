@@ -7,14 +7,19 @@ const routes = [
     component: () => import('../views/Index.vue'),
   },
   {
+    path: '/table',
+    name: 'Table',
+    component: () => import('../views/Table.vue'),
+  },
+  {
     path: '/editor',
     name: 'Editor',
     component: () => import('../views/Editor.vue'),
   },
   {
-    path: '/table',
-    name: 'Table',
-    component: () => import('../views/Table.vue'),
+    path: '/test',
+    name: 'Test',
+    component: () => import('../views/Test.vue'),
   },
   {
     path: '/about',

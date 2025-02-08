@@ -46,6 +46,30 @@ export async function execSql(connId, sql) {
 }
 
 /**
+ * 切换数据库
+ * @param connId
+ * @param database
+ * @returns {Promise<{error}|{}|{error: string}>}
+ */
+export async function changeDatabase(connId, database) {
+    const conn = connMap[connId];
+    if (!conn) {
+        return { error: 'invalid connId' };
+    }
+    return new Promise((resolve, reject) => {
+        conn.changeUser({
+            database
+        }, err => {
+            if (err) {
+                reject({ error: err.message });
+            } else {
+                resolve({});
+            }
+        });
+    });
+}
+
+/**
  * 关闭连接
  * @param connId
  */

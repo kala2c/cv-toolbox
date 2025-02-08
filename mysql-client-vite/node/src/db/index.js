@@ -38,8 +38,8 @@ export async function execSql(connId, sql) {
         return { error: 'invalid connId' };
     }
     try {
-        const [result] = await conn.execute(sql);
-        return { result };
+        const [result, fields] = await conn.execute(sql);
+        return { result, fields };
     } catch (err) {
         return { error: err.message };
     }
