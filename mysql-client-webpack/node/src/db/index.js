@@ -3,6 +3,29 @@ import { generateRandomStr } from "../utils/data";
 
 const connMap = {};
 
+const getConnInstance = (connId) => {
+    const conn = connMap[connId];
+    if (!conn) {
+        return null;
+    }
+    return conn.instance;
+};
+
+/**
+ * 获取当前链接的信息
+ * @param connId
+ */
+export async function getConnInfo(connId) {
+    const conn = connMap[connId];
+    if (!conn) {
+        return null;
+    }
+    return {
+        connId,
+        database: conn.database,
+    }
+}
+
 /**
  * 创建数据库连接
  * @param config
@@ -19,7 +42,10 @@ export async function createConnection(config) {
             password,
         });
         const connId = generateRandomStr(16);
-        connMap[connId] = conn;
+        connMap[connId] = {
+            instance: conn,
+            database: ''
+        };
         return connId;
     } catch (e) {
         console.log(e);
@@ -33,13 +59,14 @@ export async function createConnection(config) {
  * @param sql
  */
 export async function execSql(connId, sql) {
-    const conn = connMap[connId];
+    const conn = getConnInstance(connId);
     if (!conn) {
         return { error: 'invalid connId' };
     }
     try {
-        const [result] = await conn.execute(sql);
-        return { result };
+        const res = await conn.execute(sql);
+        const [result, fields] = res;
+        return { result, fields };
     } catch (err) {
         return { error: err.message };
     }
@@ -52,21 +79,15 @@ export async function execSql(connId, sql) {
  * @returns {Promise<{error}|{}|{error: string}>}
  */
 export async function changeDatabase(connId, database) {
-    const conn = connMap[connId];
+    const conn = getConnInstance(connId);
     if (!conn) {
         return { error: 'invalid connId' };
     }
-    return new Promise((resolve, reject) => {
-        conn.changeUser({
-            database
-        }, err => {
-            if (err) {
-                reject({ error: err.message });
-            } else {
-                resolve({});
-            }
-        });
+    await conn.changeUser({
+        database
     });
+    connMap[connId].database = database;
+    return {};
 }
 
 /**
@@ -74,7 +95,7 @@ export async function changeDatabase(connId, database) {
  * @param connId
  */
 export function closeConnection(connId) {
-    const conn = connMap[connId];
+    const conn = getConnInstance(connId);
     if (conn) {
         conn.destroy();
         delete connMap[connId];

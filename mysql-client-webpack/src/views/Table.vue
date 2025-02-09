@@ -16,13 +16,32 @@
         <vxe-option v-for="item in tableList" :key="item.value" :label="item.label" :value="item.value"></vxe-option>
       </vxe-select>
     </div>
+
+    <div class="table-content">
+      <vxe-table
+        :data="tableData"
+        stripe
+        border
+        show-overflow
+        :edit-config="editConfig"
+        @edit-closed="handleEditClosed"
+      >
+        <vxe-column
+            v-for="item in tableStruct"
+            :key="item.field"
+            :field="item.field"
+            :title="item.title"
+            :edit-render="{ name: 'input' }"
+        ></vxe-column>
+      </vxe-table>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { VxeInput, VxeButton, VxeSelect, VxeOption } from 'vxe-pc-ui';
+import { VxeTable, VxeColumn } from "vxe-table";
+import { VxeInput, VxeButton, VxeSelect, VxeOption, VxeTooltip } from 'vxe-pc-ui';
 import { reactive, ref, watch } from "vue";
-import {changeDatabase} from "../../node/src/db";
 
 const _t = str => "`" + str + "`";
 
@@ -51,6 +70,11 @@ watch(() => config.value, (newVal) => {
   localStorage.setItem('config-cache', JSON.stringify(newVal));
 }, { deep: true });
 
+const editConfig = {
+  mode: 'cell',
+  trigger: 'click',
+}
+
 const createDbConn = async () => {
   connId = await nodeObj.db.createConnection({
     host: config.host,
@@ -71,6 +95,8 @@ const createDbConn = async () => {
   changeDb();
 }
 
+createDbConn();
+
 const changeDb = async () => {
   console.log('选择数据库', config.currentDatabase);
   // 切换到数据库
@@ -85,15 +111,40 @@ const changeDb = async () => {
     };
   });
   config.currentTable = '';
-  // config.currentTable = tableList.value[0].name;
-  // changeTable();
+  config.currentTable = tableList.value[0].value;
+  changeTable();
 }
+
+const tableData = ref([]);
+const tableStruct = ref([]);
 
 const changeTable = async () => {
   console.log('选择表', config.currentTable);
   const sql = `select * from ${_t(config.currentTable)} limit 500`;
+
+  const connInfo = await nodeObj.db.getConnInfo(connId);
+  console.log('当前使用的数据库', connInfo.database);
+  if (connInfo.database !== config.currentDatabase) {
+    await nodeObj.db.changeDatabase(connId, config.currentDatabase);
+  }
+  const connInfo2 = await nodeObj.db.getConnInfo(connId);
+  console.log('当前使用的数据库', connInfo2.database);
   const res = await nodeObj.db.execSql(connId, sql);
   console.log('表格数据', res);
+  tableData.value = res.result;
+  tableStruct.value = res.fields.map(o => {
+    return {
+      field: o.name,
+      title: o.name,
+    };
+  });
+}
+
+const handleEditClosed = (evt) => {
+  console.log('编辑结束', evt);
+  // const sql = `update ${_t(config.currentTable)} set ${column.property} = '${row[column.property]}' where id = ${row.id}`;
+  // console.log('sql', sql);
+  // nodeObj.db.execSql(connId, sql);
 }
 
 </script>
