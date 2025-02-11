@@ -21,8 +21,8 @@ const editor = ref();
 
 function initMonaco() {
   monaco.editor.create(editor.value, {
-    value: 'const a = "hello"',
-    language: 'javascript',
+    value: props.value,
+    language: 'json',
     theme: 'vs-light'
   });
 }

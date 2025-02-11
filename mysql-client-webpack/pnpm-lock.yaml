@@ -51,6 +51,9 @@ importers:
       babel-plugin-import:
         specifier: ^1.13.8
         version: 1.13.8
+      monaco-editor-webpack-plugin:
+        specifier: ^7.1.0
+        version: 7.1.0(monaco-editor@0.52.2)(webpack@5.97.1)
       sass:
         specifier: ^1.32.7
         version: 1.83.4
@@ -2497,6 +2500,12 @@ packages:
 
   moment@2.30.1:
     resolution: {integrity: sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==}
+
+  monaco-editor-webpack-plugin@7.1.0:
+    resolution: {integrity: sha512-ZjnGINHN963JQkFqjjcBtn1XBtUATDZBMgNQhDQwd78w2ukRhFXAPNgWuacaQiDZsUr4h1rWv5Mv6eriKuOSzA==}
+    peerDependencies:
+      monaco-editor: '>= 0.31.0'
+      webpack: ^4.5.0 || 5.x
 
   monaco-editor@0.52.2:
     resolution: {integrity: sha512-GEQWEZmfkOGLdd3XK8ryrfWz3AIP8YymVXiPHEdewrUq7mh0qrKrfHLNCXcbB6sTnMLnOZ3ztSiKcciFUkIJwQ==}
@@ -6402,6 +6411,12 @@ snapshots:
   module-alias@2.2.3: {}
 
   moment@2.30.1: {}
+
+  monaco-editor-webpack-plugin@7.1.0(monaco-editor@0.52.2)(webpack@5.97.1):
+    dependencies:
+      loader-utils: 2.0.4
+      monaco-editor: 0.52.2
+      webpack: 5.97.1
 
   monaco-editor@0.52.2: {}
 
