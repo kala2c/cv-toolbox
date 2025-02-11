@@ -1,19 +1,10 @@
 # mysql-client-webpack
 
-## Project setup
-```
-yarn install
-```
+## 数据库工具
 
-### Compiles and hot-reloads for development
-```
-yarn serve
-```
+### 主要功能
 
-### Compiles and minifies for production
-```
-yarn build
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+- 表基本数据编辑管理
+- 执行SQL
+  - SQL格式化/美化/AI辅助
+  - 使用js代码处理查询结果

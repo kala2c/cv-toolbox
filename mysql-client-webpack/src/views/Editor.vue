@@ -11,7 +11,7 @@ const editor = ref();
 function initMonaco() {
   monaco.editor.create(editor.value, {
     value: 'SELECT * FROM table_name',
-    language: 'sql',
+    language: 'javascript',
     theme: 'vs-light'
   });
 }

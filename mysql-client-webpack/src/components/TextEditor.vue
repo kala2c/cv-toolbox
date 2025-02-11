@@ -1,17 +1,28 @@
 <template>
-  <div class="editor-widget" ref="editor"></div>
+  <div class="text-editor">
+    {{ props.value }}
+    <div class="editor-widget" ref="editor"></div>
+  </div>
 </template>
 
 <script setup>
 import * as monaco from 'monaco-editor';
 import {onMounted, ref} from "vue";
 
+const props = defineProps({
+  value: {
+    type: String,
+    default: ''
+  }
+});
+const emit = defineEmits(['update:value']);
+
 const editor = ref();
 
 function initMonaco() {
   monaco.editor.create(editor.value, {
-    value: 'SELECT * FROM table_name',
-    language: 'sql',
+    value: 'const a = "hello"',
+    language: 'javascript',
     theme: 'vs-light'
   });
 }

@@ -9,11 +9,9 @@
     <div class="content">
       <div class="side"></div>
       <div class="main">
-        <TableViewer></TableViewer>
       </div>
     </div>
   </div>
 </template>
 <script setup>
-import TableViewer from "@/components/TableViewer.vue";
 </script>
