@@ -8,7 +8,8 @@
       <div class="action-item">
         <vxe-icon name="arrow-left"></vxe-icon>
       </div>
-      <vxe-input class="action-input" v-model="actionParam.currentPage"></vxe-input>
+<!--      <vxe-input class="action-input" v-model="actionParam.currentPage"></vxe-input>-->
+      <edit-area-div class="action-input" v-model="actionParam.currentPage"></edit-area-div>
       <div class="action-item">
         <vxe-icon name="arrow-right"></vxe-icon>
       </div>
@@ -111,6 +112,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { VxeUI } from 'vxe-pc-ui';
 import { _t, showToast, formatDateTime } from "@/utils/common";
 import TextEditor from "@/components/TextEditor.vue";
+import EditAreaDiv from "@/components/EditAreaDiv.vue";
 
 const props = defineProps({
   connId: {

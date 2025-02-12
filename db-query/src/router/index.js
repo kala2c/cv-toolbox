@@ -25,7 +25,12 @@ const routes = [
     path: '/table-viewer',
     name: 'TableViewer',
     component: () => import('../views/TableViewerTest.vue')
-  }
+  },
+  {
+    path: '/query-test',
+    name: 'QueryTest',
+    component: () => import('../views/QueryTest.vue')
+  },
 ]
 
 const router = createRouter({

@@ -12,10 +12,12 @@
       <vxe-select v-model="config.currentDatabase" :data="databaseList" @change="changeDb">
         <vxe-option v-for="item in databaseList" :key="item.value" :label="item.label" :value="item.value"></vxe-option>
       </vxe-select>
-      选择表
-      <vxe-select v-model="config.currentTable" :data="tableList" @change="changeTable">
-        <vxe-option v-for="item in tableList" :key="item.value" :label="item.label" :value="item.value"></vxe-option>
-      </vxe-select>
+      <template v-if="showTable">
+        选择表
+        <vxe-select v-model="config.currentTable" :data="tableList" @change="changeTable">
+          <vxe-option v-for="item in tableList" :key="item.value" :label="item.label" :value="item.value"></vxe-option>
+        </vxe-select>
+      </template>
     </div>
   </div>
 </template>
@@ -24,6 +26,25 @@
 import { VxeUI } from 'vxe-pc-ui';
 import { reactive, ref, watch } from "vue";
 import { _t } from "@/utils/common";
+
+const props = defineProps({
+  modelValue: {
+    type: Object,
+    default: () => {
+      return {
+        connId: '',
+        database: '',
+        tableName: '',
+      }
+    }
+  },
+  showTable: {
+    type: Boolean,
+    default: true
+  }
+});
+
+const emit = defineEmits(['update:modelValue', 'change']);
 
 const config = reactive({
   name: '',
@@ -87,19 +108,23 @@ const changeDb = async () => {
     };
   });
   config.currentTable = tableList.value[0].value;
+  emit('update:modelValue', {
+    connId: connId.value,
+    database: config.currentDatabase,
+    tableName: config.currentTable
+  });
   changeTable();
 }
-const emit = defineEmits(['change']);
 const changeTable = () => {
   console.log('切换表', config.currentTable);
-  emit('change', {
+  const data = {
     connId: connId.value,
     database: config.currentDatabase,
     table: config.currentTable
-  });
+  };
+  emit('change', data);
+  emit('update:modelValue', data);
 }
-
-
 </script>
 
 <style lang="scss">
