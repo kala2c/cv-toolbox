@@ -12,7 +12,7 @@ module.exports = defineConfig({
   publicPath: './',
   outputDir: mode === 'single-app'
       ? path.resolve(__dirname, '../../cv-toolbox-nwjs-sdk', 'package.nw')
-      : '../base/package.nw/modules/mysql-client',
+      : '../base/package.nw/modules/db-query',
   configureWebpack: {
     plugins: [
         new MonacoWebpackPlugin({

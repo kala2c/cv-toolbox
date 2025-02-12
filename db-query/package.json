@@ -1,6 +1,6 @@
 {
-  "name": "mysql-client-webpack",
-  "version": "0.1.0",
+  "name": "db-query",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "npm run build:watch",

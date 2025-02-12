@@ -1,5 +1,5 @@
 {
-  "name": "mysql-client-node",
+  "name": "db-query-node",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {

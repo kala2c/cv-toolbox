@@ -31,7 +31,6 @@ export async function getConnInfo(connId) {
  * @param config
  */
 export async function createConnection(config) {
-    console.log("556")
     const { host, port, username, password } = config;
     console.log('创建数据库连接', host, port, username, password);
     try {
@@ -48,7 +47,7 @@ export async function createConnection(config) {
         };
         return connId;
     } catch (e) {
-        console.log(e);
+        console.log('数据库连接创建失败', e);
         return null;
     }
 }
