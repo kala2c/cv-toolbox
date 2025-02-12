@@ -17,15 +17,15 @@ const routes = [
     component: () => import('../views/Editor.vue'),
   },
   {
-    path: '/test',
-    name: 'Test',
-    component: () => import('../views/Test.vue'),
+    path: '/tree-conn',
+    name: 'TreeConn',
+    component: () => import('../views/TreeConnTest.vue'),
   },
   {
-    path: '/about',
-    name: 'About',
-    component: () => import('../views/About.vue'),
-  },
+    path: '/table-viewer',
+    name: 'TableViewer',
+    component: () => import('../views/TableViewerTest.vue')
+  }
 ]
 
 const router = createRouter({

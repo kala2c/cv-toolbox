@@ -1,17 +1,14 @@
 <template>
   <div>
     <div class="top">
-      <router-link to="/editor">Editor</router-link>
-      <router-link to="/about">About</router-link>
-      <router-link to="/test">test</router-link>
-      <router-link to="/table">Table</router-link>
-    </div>
-    <div class="content">
-      <div class="side"></div>
-      <div class="main">
-      </div>
+      <router-link to="/editor">monaco编辑器测试</router-link>
+      <br>
+      <router-link to="/table-viewer">TableViewer调试</router-link>
+      <br>
+      <router-link to="/tree-conn">树形链接测试</router-link>
     </div>
   </div>
 </template>
 <script setup>
+
 </script>

@@ -1,4 +1,5 @@
 const { defineConfig } = require('@vue/cli-service');
+// const AutoImport = require('unplugin-auto-import/webpack');
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const path = require("node:path");
 
@@ -17,7 +18,11 @@ module.exports = defineConfig({
     plugins: [
         new MonacoWebpackPlugin({
           languages: ['javascript', 'css', 'html', 'json', 'sql']
-        })
+        }),
+        // AutoImport({
+        //   imports: ['vue'],
+        //   dts: 'src/auto-import.d.ts',
+        // }),
     ]
   },
 });
