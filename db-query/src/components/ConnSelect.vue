@@ -1,5 +1,13 @@
 <template>
   <div class="conn-select">
+    <vxe-select v-model="currentTestConfig" @change="handleConfigListChange">
+      <vxe-option
+          v-for="config in testConfigList"
+          :key="config.name"
+          :label="config.name"
+          :value="config.name"
+      ></vxe-option>
+    </vxe-select>
     <div class="params-block">
       <vxe-input v-model="config.host"></vxe-input>
       <vxe-input v-model="config.port"></vxe-input>
@@ -56,11 +64,10 @@ const config = reactive({
   currentDatabase: '',
   currentTable: '',
 });
+const connId = ref('');
 
 const databaseList = ref([]);
 const tableList = ref([]);
-
-const connId = ref('');
 
 const localConfig = localStorage.getItem('config-cache');
 if (localConfig) {
@@ -71,7 +78,9 @@ watch(() => config.value, (newVal) => {
   localStorage.setItem('config-cache', JSON.stringify(newVal));
 }, { deep: true });
 
-const createDbConn = async () => {
+async function createDbConn() {
+  databaseList.value = [];
+  tableList.value = [];
   connId.value = await nodeObj.db.createConnection({
     host: config.host,
     port: config.port,
@@ -91,13 +100,11 @@ const createDbConn = async () => {
   await changeDb();
 }
 
-createDbConn();
-
 const changeDb = async () => {
   console.log('切换数据库', config.currentDatabase);
   config.currentTable = '';
   // 切换到数据库
-  await nodeObj.db.changeDatabase(connId.value, config.currentDatabase);
+  // await nodeObj.db.changeDatabase(connId.value, config.currentDatabase);
   const res = await nodeObj.db.execSql(connId.value, `show tables from ${_t(config.currentDatabase)}`);
   const tables = res.result;
   tableList.value = tables.map(o => {
@@ -125,6 +132,24 @@ const changeTable = () => {
   emit('change', data);
   emit('update:modelValue', data);
 }
+
+
+// 测试用的链接
+const currentTestConfig = ref('');
+const testConfigList = ref([
+  { name: '1.26-helloworld', host: '121.196.198.72', port: '7002', username: 'hello-world', password: 'mx42LjBaBTkCBpT3' },
+  { name: '数图mysql', host: '192.168.3.240', port: '3306', username: 'root', password: 'root' },
+]);
+const handleConfigListChange = () => {
+  const testConfig = testConfigList.value.find(o => o.name === currentTestConfig.value);
+  config.host = testConfig.host;
+  config.port = testConfig.port;
+  config.username = testConfig.username;
+  config.password = testConfig.password;
+  createDbConn();
+}
+currentTestConfig.value = testConfigList.value[0].name;
+handleConfigListChange();
 </script>
 
 <style lang="scss">

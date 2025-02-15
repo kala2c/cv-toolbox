@@ -14,6 +14,7 @@
 import { VxeUI } from 'vxe-pc-ui';
 import * as monaco from 'monaco-editor';
 import { onMounted, ref, watch, reactive } from 'vue';
+import { debounce } from 'lodash';
 
 const props = defineProps({
   modelValue: {
@@ -24,6 +25,14 @@ const props = defineProps({
   defaultLanguage: {
     type: String,
     default: 'text'
+  },
+  width: {
+    type: Number,
+    default: 800
+  },
+  height: {
+    type: Number,
+    default: 600
   }
 });
 
@@ -37,9 +46,11 @@ const baseOptions = reactive({
   theme: 'vs-light'
 });
 
-watch(() => props.modelValue, (newVal) => {
+watch(() => props.modelValue, debounce((newVal, oldVal) => {
+  const val = editor.getValue();
+  if (val === newVal) return;
   editor && editor.setValue(newVal);
-});
+}, 200));
 watch(() => props.defaultLanguage, (newVal) => {
   baseOptions.language = newVal;
   if (editor) {
@@ -65,11 +76,9 @@ function initMonaco() {
     theme: baseOptions.theme,
   });
 
-  monaco.editor.onDidCreateEditor(editor => {
-    editor.onDidChangeModelContent(() => {
-      const value = editor.getValue();
-      emit('update:modelValue', value);
-    });
+  editor.onDidChangeModelContent(() => {
+    const value = editor.getValue();
+    emit('update:modelValue', value);
   });
 }
 
@@ -81,7 +90,7 @@ onMounted(() => {
 <style>
 .editor-widget {
   width: 800px;
-  height: 600px;
+  height: 300px;
   border: 1px solid #ccc;
 }
 </style>
