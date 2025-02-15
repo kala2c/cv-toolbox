@@ -25,10 +25,10 @@
       <div class="action-item">
         <vxe-icon name="refresh"></vxe-icon>
       </div>
-      <div class="action-item">
+      <div class="action-item" @click="onInsert">
         <vxe-icon name="add"></vxe-icon>
       </div>
-      <div class="action-item">
+      <div class="action-item" @click="onDelete">
         <vxe-icon name="minus"></vxe-icon>
       </div>
       <div class="action-item">
@@ -52,6 +52,7 @@
       <vxe-button class="filter-btn">查询</vxe-button>
     </div>
     <vxe-table
+        ref="tableRef"
         :data="tableData"
         stripe
         border
@@ -147,10 +148,12 @@ const handleEditPopupConfirm = () => {
   console.log('保存编辑器');
 }
 
+const tableRef = ref();
+
 // 单元格编辑
 const editConfig = {
   mode: 'cell',
-  trigger: 'dblclick',
+  trigger: 'click',
 }
 // 单元格右键操作
 const menuConfig = reactive({
@@ -172,7 +175,6 @@ const handleMenuClick = (evt) => {
   const col = tableStruct.value[columnIndex];
   const field = col.field;
   if (menu.code === 'editText') {
-    console.log(col);
     if (col.type !== 'text' && col.type.indexOf('varchar') !== 0) {
       showToast('只能编辑文本类型', 'warning');
       return;
@@ -285,7 +287,7 @@ watch(() => props.tableName, () => {
 const undoList = [];
 
 // 修改的缓存
-const updateCache = {};
+let updateCache = {};
 // 新增数据缓存
 const insertCache = [];
 // 删除数据缓存
@@ -303,14 +305,17 @@ const getRowSnapshot = rowIndex => {
 
 let rowCache = null;
 const handleEditActivated = (evt) => {
-  const { rowIndex } = evt;
+  console.log('激活编辑', evt);
+  const { rowIndex, row } = evt;
+  if (row.isInsert) return;
   rowCache = getRowSnapshot(rowIndex);
   console.log('编辑激活，编辑行', rowIndex, '缓存', rowCache);
 }
 
 const handleEditClosed = async (evt) => {
   console.log('编辑结束', evt);
-  const { rowIndex, columnIndex } = evt;
+  const { rowIndex, columnIndex, row } = evt;
+  if (row.isInsert) return;
   const rowData = getRowSnapshot(rowIndex);
   const rowStr = JSON.stringify(rowData);
   if (rowStr !== JSON.stringify(rowCache)) {
@@ -349,30 +354,64 @@ const handleEditClosed = async (evt) => {
   }
 }
 
-// 提交修改到数据库
-const onCommit = async () => {
-  console.log('commit到数据库，数据集', updateCache)
+async function commitUpdate() {
+  console.log('commit更新到数据库，数据集', updateCache)
   // 将updateCache转换为sql语句
   const updateSql = [];
   for (const key in updateCache) {
     const { oldVal, newVal } = updateCache[key];
     // 使用主键作为条件
     const condition = tablePrimaryKey.value.map(o => `${o} = '${oldVal[o]}'`).join(' and ');
-    const updateSqlStr = [];
+    const fieldSqlStr = [];
     for (const field in newVal) {
       if (oldVal[field] === newVal[field]) {
         // 字段未更改，跳过
         continue;
       }
-      updateSqlStr.push(`${field} = '${newVal[field]}'`);
+      fieldSqlStr.push(`${field} = '${newVal[field]}'`);
     }
-    if (updateSqlStr.length < 1) continue; // 无更新字段，跳过
-    updateSql.push(`update ${_t(props.tableName)} set ${updateSqlStr.join(',')} where ${condition};`);
+    if (fieldSqlStr.length < 1) continue; // 无更新字段，跳过
+    updateSql.push(`update ${_t(props.tableName)} set ${fieldSqlStr.join(',')} where ${condition};`);
   }
   console.log('commit到数据库，sql语句', updateSql)
   if (updateSql.length < 1) return;
   await nodeObj.db.query(props.connId, updateSql.join("\n"));
-  showToast('更新成功');
+  updateCache = {};
+  showToast('更新数据成功');
+}
+
+// 提交修改到数据库
+const onCommit = async () => {
+  await commitUpdate();
+  const insertRecords = tableRef.value.getInsertRecords();
+  const insertSql = [];
+  for (const row of insertRecords) {
+    let insertFields = [];
+    let insertValues = [];
+    for (const col of tableStruct.value) {
+      const field = col.field;
+      if (row[field] !== null && row[field] !== undefined) {
+        insertFields.push(_t(field));
+        insertValues.push(`'${row[field]}'`);
+      }
+    }
+    if (insertFields.length > 0 && insertValues.length > 0) {
+      insertSql.push(`insert into ${_t(props.tableName)} (${insertFields.join(',')}) values (${insertValues.join(',')});`);
+    }
+  }
+  console.log('执行insert操作', insertSql)
+  if (insertSql.length > 0) {
+    await nodeObj.db.query(props.connId, insertSql.join("\n"));
+    showToast('插入数据成功');
+    queryTable();
+  }
+}
+
+const onInsert = () => {
+  tableRef.value.insertAt({ isInsert: true }, -1);
+}
+
+const onDelete = async () => {
 }
 
 /**
