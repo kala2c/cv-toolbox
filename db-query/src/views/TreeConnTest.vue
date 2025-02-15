@@ -13,7 +13,7 @@
 <script setup>
 import { reactive } from "vue";
 import ConnSelect2 from "@/components/ConnSelect2.vue";
-import TableViewer from "@/components/TableViewer.vue";
+import TableViewer from "@/components/TableViewer";
 
 const connData = reactive({
   connId: "",

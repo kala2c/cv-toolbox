@@ -8,7 +8,7 @@
       <div class="action-item">
         <vxe-icon name="arrow-left"></vxe-icon>
       </div>
-<!--      <vxe-input class="action-input" v-model="actionParam.currentPage"></vxe-input>-->
+      <!--      <vxe-input class="action-input" v-model="actionParam.currentPage"></vxe-input>-->
       <edit-area-div class="action-input" v-model="actionParam.currentPage"></edit-area-div>
       <div class="action-item">
         <vxe-icon name="arrow-right"></vxe-icon>
@@ -34,7 +34,7 @@
       <div class="action-item">
         <vxe-icon name="undo"></vxe-icon>
       </div>
-      <div class="action-item">
+      <div class="action-item" @click="onCommit">
         <vxe-icon name="arrows-up"></vxe-icon>
       </div>
     </div>
@@ -72,9 +72,9 @@
             <template v-if="row[col.field] === null || row[col.field] === undefined">
               <span class="null-value">NULL</span>
             </template>
-<!--            <template v-else-if="col.type === 'datetime'">-->
-<!--              {{ formatDateTime(row[col.field]) }}-->
-<!--            </template>-->
+            <!--            <template v-else-if="col.type === 'datetime'">-->
+            <!--              {{ formatDateTime(row[col.field]) }}-->
+            <!--            </template>-->
             <template v-else>
               {{ row[col.field] }}
             </template>
@@ -108,9 +108,9 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
-import { VxeUI } from 'vxe-pc-ui';
-import { _t, showToast, formatDateTime } from "@/utils/common";
+import {computed, reactive, ref, watch} from 'vue';
+import {VxeUI} from 'vxe-pc-ui';
+import {_t, formatDateTime, showToast} from "@/utils/common";
 import TextEditor from "@/components/TextEditor.vue";
 import EditAreaDiv from "@/components/EditAreaDiv.vue";
 
@@ -164,6 +164,8 @@ const menuConfig = reactive({
     ]
   }
 });
+
+// 右键操作
 const handleMenuClick = (evt) => {
   const { rowIndex, columnIndex, menu } = evt;
   const rowData = getRowSnapshot(rowIndex);
@@ -232,12 +234,12 @@ const queryTable = async () => {
     sql += ` order by ${actionParam.orderSql}`;
   }
   // 查询数据总条数
-  const totalQuery = await nodeObj.db.execSql(props.connId, totalSql);
+  const totalQuery = await nodeObj.db.query(props.connId, totalSql);
   actionParam.total = totalQuery.result[0].total;
   // 组装分页参数
   const offset = (actionParam.currentPage - 1) * actionParam.pageSize;
-  sql += ` limit ${actionParam.pageSize} offset ${offset}`;
-  const query = await nodeObj.db.execSql(props.connId, sql);
+  sql += ` limit ${actionParam.pageSize} offset ${offset};`;
+  const query = await nodeObj.db.query(props.connId, sql);
   tableData.value = query.result.map(row => {
     // 数据处理
     tableStruct.value.forEach(col => {
@@ -252,8 +254,8 @@ const queryTable = async () => {
 
 // 表格基本信息加载
 const getTableStruct = async () => {
-  const sql = `desc ${_t(props.tableName)}`;
-  const query = await nodeObj.db.execSql(props.connId, sql);
+  const sql = `desc ${_t(props.tableName)};`;
+  const query = await nodeObj.db.query(props.connId, sql);
   console.log('表信息', sql, query.result);
   tableStruct.value = query.result.map(o => {
     return {
@@ -279,9 +281,17 @@ watch(() => props.tableName, () => {
   immediate: true
 });
 
+// undo历史记录
+const undoList = [];
+
+// 修改的缓存
+const updateCache = {};
+// 新增数据缓存
+const insertCache = [];
+// 删除数据缓存
+const deleteCache = [];
 
 // 单元格编辑
-let rowCache = null;
 const getRowSnapshot = rowIndex => {
   const rowData = tableData.value[rowIndex];
   const map = {};
@@ -291,10 +301,10 @@ const getRowSnapshot = rowIndex => {
   return map;
 }
 
+let rowCache = null;
 const handleEditActivated = (evt) => {
   const { rowIndex } = evt;
-  const rowData = getRowSnapshot(rowIndex);
-  rowCache = JSON.stringify(rowData);
+  rowCache = getRowSnapshot(rowIndex);
   console.log('编辑激活，编辑行', rowIndex, '缓存', rowCache);
 }
 
@@ -303,17 +313,66 @@ const handleEditClosed = async (evt) => {
   const { rowIndex, columnIndex } = evt;
   const rowData = getRowSnapshot(rowIndex);
   const rowStr = JSON.stringify(rowData);
-  if (rowStr !== rowCache) {
-    console.log('数据有变化，执行更新');
-    // 获取更新的字段
-    const field = tableStruct.value[columnIndex].field;
-    // 使用主键作为条件
-    const condition = tablePrimaryKey.value.map(o => `${o} = '${rowData[o]}'`).join(' and ');
-    const sql = `update ${_t(props.tableName)} set ${field} = '${rowData[field]}' where ${condition}`;
-    console.log('执行的sql', sql);
-    await nodeObj.db.execSql(props.connId, sql);
-    showToast('更新成功');
+  if (rowStr !== JSON.stringify(rowCache)) {
+    // 单元格缓存模式 ↓↓↓↓↓
+    console.log('数据有变化，添加到缓存');
+    // 使用主键作为缓存key
+    const cacheKey = tablePrimaryKey.value.map(o => rowCache[o]).join('-');
+    const cacheKeyNew = tablePrimaryKey.value.map(o => rowData[o]).join('-');
+    const newVal = getRowSnapshot(rowIndex);
+    if (updateCache[cacheKey]) {
+      // 此处可以校验newVal是否等于olaVal，相等从缓存中移除
+      updateCache[cacheKey].newVal = newVal;
+    } else {
+      updateCache[cacheKey] = {
+        oldVal: rowCache,
+        newVal: getRowSnapshot(rowIndex)
+      };
+    }
+    // 如果修改了主键值，则缓存key需要更新
+    if (cacheKey !== cacheKeyNew) {
+      updateCache[cacheKeyNew] = updateCache[cacheKey];
+      delete updateCache[cacheKey];
+    }
+    // 单元格缓存模式 ↑↑↑↑↑
+
+    // // 单元格实时保存模式 ↓↓↓↓↓
+    // // 当前单元格更新的字段
+    // const field = tableStruct.value[columnIndex].field;
+    // // 使用主键作为条件
+    // const condition = tablePrimaryKey.value.map(o => `${o} = '${rowCache[o]}'`).join(' and ');
+    // const sql = `update ${_t(props.tableName)} set ${field} = '${rowData[field]}' where ${condition}`;
+    // console.log('执行的sql', sql);
+    // await nodeObj.db.query(props.connId, sql);
+    // showToast('更新成功');
+    // // 单元格实时保存模式 ↑↑↑↑↑
   }
+}
+
+// 提交修改到数据库
+const onCommit = async () => {
+  console.log('commit到数据库，数据集', updateCache)
+  // 将updateCache转换为sql语句
+  const updateSql = [];
+  for (const key in updateCache) {
+    const { oldVal, newVal } = updateCache[key];
+    // 使用主键作为条件
+    const condition = tablePrimaryKey.value.map(o => `${o} = '${oldVal[o]}'`).join(' and ');
+    const updateSqlStr = [];
+    for (const field in newVal) {
+      if (oldVal[field] === newVal[field]) {
+        // 字段未更改，跳过
+        continue;
+      }
+      updateSqlStr.push(`${field} = '${newVal[field]}'`);
+    }
+    if (updateSqlStr.length < 1) continue; // 无更新字段，跳过
+    updateSql.push(`update ${_t(props.tableName)} set ${updateSqlStr.join(',')} where ${condition};`);
+  }
+  console.log('commit到数据库，sql语句', updateSql)
+  if (updateSql.length < 1) return;
+  await nodeObj.db.query(props.connId, updateSql.join("\n"));
+  showToast('更新成功');
 }
 
 /**
