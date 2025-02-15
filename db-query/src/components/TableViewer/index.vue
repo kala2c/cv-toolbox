@@ -507,7 +507,8 @@ document.addEventListener('click', (evt) => {
 
 function traceElHasClass(el, className) {
   while (el !== document.body) {
-    if (el.classList.contains(className)) {
+    if (!el) return false;
+    if (el.classList && el.classList.contains(className)) {
       return true;
     }
     el = el.parentNode;
