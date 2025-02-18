@@ -10,13 +10,13 @@ let props = null;
 
 // vxe-table实例
 const tableRef = ref(null);
-// 高亮行索引
+// 当前高亮行的索引
 const highlightRowIndex = ref(-1);
-// 表格数据
+// 表数据
 const tableData = ref([]);
-// 表格结构
+// 表结构
 const tableStruct = ref([]);
-// 表格主键
+// 表主键
 const tablePrimaryKey = computed(() => {
   return tableStruct.value.filter(o => o.key === 'PRI').map(o => o.field);
 });
@@ -36,6 +36,7 @@ const updateCache = reactive({});
 export const clearCache = () => {
   deleteCache.value = {};
   updateCache.value = {};
+  // 没有新增缓存 用的vxe-table内部的records管理 同步清除
   tableRef.value.removeInsertRow();
 }
 
@@ -104,8 +105,7 @@ async function queryTable() {
   hideLoading();
 }
 
-
-// 表格基本信息加载
+// 数据表结构加载
 async function getTableStruct() {
   const sql = `desc ${_t(props.tableName)};`;
   const query = await nodeObj.db.query(props.connId, sql);
