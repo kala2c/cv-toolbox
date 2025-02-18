@@ -21,3 +21,11 @@ export const formatDateTime = date => {
         return date;
     }
 }
+
+export const showLoading = () => {
+    VxeUI.loading.open();
+}
+
+export const hideLoading = () => {
+    VxeUI.loading.close();
+}

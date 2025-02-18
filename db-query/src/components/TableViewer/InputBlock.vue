@@ -2,8 +2,8 @@
   <div class="input-block">
     <vxe-input 
       class="filter-input" placeholder="输入where子句"
-      v-model="model.whereSql"
-      @change="emit('update:whereSql', model.whereSql)"
+      v-model="actionParam.whereSql"
+      @change="emit('update:whereSql', actionParam.whereSql)"
       @keyup.enter="emit('keyupEnter')"
     >
     <template #prefix>
@@ -13,8 +13,8 @@
     <vxe-input 
       class="filter-input" 
       placeholder="输入order子句"
-      v-model="model.orderSql" 
-      @change="emit('update:orderSql', model.orderSql)"
+      v-model="actionParam.orderSql" 
+      @change="emit('update:orderSql', actionParam.orderSql)"
       @keyup.enter="emit('keyupEnter')"
     >
     <template #prefix>
@@ -26,32 +26,14 @@
 </template>
 
 <script setup>
-import { reactive, watch } from 'vue';
-const props = defineProps({
-  whereSql: {
-    type: String,
-    default: ''
-  },
-  orderSql: {
-    type: String,
-    default: ''
-  }
-});
+import { useTableViewerRef } from './js/common';
 
-const emit = defineEmits(['keyupEnter', 'update:whereSql', 'update:orderSql']);
+const {
+  actionParam
+} = useTableViewerRef();
 
-const model = reactive({
-  whereSql: props.whereSql,
-  orderSql: props.orderSql
-});
+const emit = defineEmits(['keyupEnter']);
 
-watch(() => props.whereSql, (val) => {
-  model.whereSql = val;
-});
-
-watch(() => props.orderSql, (val) => {
-  model.orderSql = val;
-});
 </script>
 
 <style lang="scss" scoped>
