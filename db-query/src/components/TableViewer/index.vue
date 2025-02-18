@@ -1,43 +1,5 @@
 <template>
   <div class="table-viewer">
-    <vxe-button @click="onTest">测试按钮</vxe-button>
-    <div class="action-block">
-      <div class="action-item">
-        <vxe-icon name="home-page"></vxe-icon>
-      </div>
-      <div class="action-item">
-        <vxe-icon name="arrow-left"></vxe-icon>
-      </div>
-      <!--      <vxe-input class="action-input" v-model="actionParam.currentPage"></vxe-input>-->
-      <edit-area-div class="action-input" v-model="actionParam.currentPage"></edit-area-div>
-      <div class="action-item">
-        <vxe-icon name="arrow-right"></vxe-icon>
-      </div>
-      <div class="action-item">
-        <vxe-icon name="end-page"></vxe-icon>
-      </div>
-      <vxe-select class="action-select" v-model="actionParam.pageSize">
-        <vxe-option v-for="size in [100, 200, 500, 1000]" :key="size" :value="size" :label="size"></vxe-option>
-      </vxe-select>
-      <div class="action-total">
-        总数 {{ actionParam.total }}
-      </div>
-      <div class="action-item">
-        <vxe-icon name="refresh"></vxe-icon>
-      </div>
-      <div class="action-item" @click="onInsert">
-        <vxe-icon name="add"></vxe-icon>
-      </div>
-      <div class="action-item" @click="onDelete">
-        <vxe-icon name="minus"></vxe-icon>
-      </div>
-      <div class="action-item">
-        <vxe-icon name="undo"></vxe-icon>
-      </div>
-      <div class="action-item" @click="onCommit">
-        <vxe-icon name="arrows-up"></vxe-icon>
-      </div>
-    </div>
     <div class="input-block">
       <vxe-input class="filter-input" v-model="actionParam.whereSql" placeholder="输入where子句">
         <template #prefix>
@@ -70,12 +32,15 @@
             :edit-render="{ enabled: true }"
         >
           <template #default="{ row, column, rowIndex, columnIndex }">
+            <!-- 空值 -->
             <template v-if="row[col.field] === null || row[col.field] === undefined">
               <span class="null-value">NULL</span>
             </template>
-            <!--            <template v-else-if="col.type === 'datetime'">-->
-            <!--              {{ formatDateTime(row[col.field]) }}-->
-            <!--            </template>-->
+            <!-- 日期时间 -->
+            <!-- <template v-else-if="col.type === 'datetime'">-->
+            <!-- {{ formatDateTime(row[col.field]) }}-->
+            <!-- </template>-->
+            <!-- 其他 -->
             <template v-else>
               {{ row[col.field] }}
             </template>
@@ -90,8 +55,51 @@
           </template>
         </vxe-column>
       </template>
-
     </vxe-table>
+    <div class="action-block">
+      <div class="left">
+        <div class="action-item" @click="goFirstPage" :class="{ disabled: isFirstPage }">
+          <vxe-icon name="home-page"></vxe-icon>
+        </div>
+        <div class="action-item" @click="goPrevPage" :class="{ disabled: isFirstPage }">
+          <vxe-icon name="arrow-left"></vxe-icon>
+        </div>
+        <edit-area-div 
+          class="action-input" 
+          v-model="actionParam.currentPage"
+          @change="handlePageInputChange">
+        </edit-area-div>
+        <div class="action-item" @click="goNextPage" :class="{ disabled: isLastPage }">
+          <vxe-icon name="arrow-right"></vxe-icon>
+        </div>
+        <div class="action-item" @click="goLastPage" :class="{ disabled: isLastPage }">
+          <vxe-icon name="end-page"></vxe-icon>
+        </div>
+        <vxe-select class="action-select" v-model="actionParam.pageSize" @change="handlePageSizeChange">
+          <vxe-option v-for="size in [100, 200, 500, 1000]" :key="size" :value="size" :label="size"></vxe-option>
+        </vxe-select>
+        <div class="action-total">
+          总数 {{ actionParam.total }}
+        </div>
+      </div>
+      <div class="right">
+        <div class="action-item">
+          <vxe-icon name="refresh"></vxe-icon>
+        </div>
+        <div class="action-item" @click="onInsert">
+          <vxe-icon name="add"></vxe-icon>
+        </div>
+        <div class="action-item" @click="onDelete">
+          <vxe-icon name="minus"></vxe-icon>
+        </div>
+        <div class="action-item">
+          <vxe-icon name="undo"></vxe-icon>
+        </div>
+        <div class="action-item" @click="onCommit">
+          <vxe-icon name="arrows-up"></vxe-icon>
+        </div>
+      </div>
+    </div>
 
     <vxe-drawer
         show-footer
@@ -254,6 +262,58 @@ const queryTable = async () => {
   });
 }
 
+// 分页相关 ↓↓↓↓↓
+const goFirstPage = () => {
+  if (actionParam.currentPage !== 1) {
+    actionParam.currentPage = 1;
+    queryTable();
+  }
+}
+
+const goPrevPage = () => {
+  if (actionParam.currentPage > 1) {
+    actionParam.currentPage--;
+    queryTable();
+  }
+}
+
+const goNextPage = () => {
+  const maxPage = Math.ceil(actionParam.total / actionParam.pageSize);
+  if (actionParam.currentPage < maxPage) {
+    actionParam.currentPage++;
+    queryTable();
+  }
+}
+
+const goLastPage = () => {
+  const maxPage = Math.ceil(actionParam.total / actionParam.pageSize);
+  if (actionParam.currentPage !== maxPage) {
+    actionParam.currentPage = maxPage;
+    queryTable();
+  }
+}
+
+const handlePageInputChange = ({ value }) => {
+  const maxPage = Math.ceil(actionParam.total / actionParam.pageSize);
+  const newPage = parseInt(value);
+  if (isNaN(newPage) || newPage < 1) {
+    actionParam.currentPage = 1;
+  } else if (newPage > maxPage) {
+    actionParam.currentPage = maxPage;
+  } else {
+    actionParam.currentPage = newPage;
+  }
+  queryTable();
+}
+
+const handlePageSizeChange = ({ value }) => {
+  // console.log('分页大小变化', value);
+  actionParam.currentPage = 1;
+  actionParam.pageSize = value;
+  queryTable();
+}
+// 分页相关 ↑↑↑↑↑
+
 // 表格基本信息加载
 const getTableStruct = async () => {
   const sql = `desc ${_t(props.tableName)};`;
@@ -414,6 +474,13 @@ const onInsert = () => {
 const onDelete = async () => {
 }
 
+// Add these computed properties in the script section:
+const isFirstPage = computed(() => actionParam.currentPage === 1);
+const isLastPage = computed(() => {
+  const maxPage = Math.ceil(actionParam.total / actionParam.pageSize);
+  return actionParam.currentPage >= maxPage;
+});
+
 /**
  * 暴露方法
  */
@@ -424,8 +491,21 @@ defineExpose({
 
 <style lang="scss">
 .action-block {
+  margin-top: 5px;
   display: flex;
-  margin-bottom: 5px;
+  justify-content: space-between;
+  .left, .right {
+    display: flex;
+    align-items: center;
+  }
+  .left {
+    .action-item {
+      width: 26px;
+    }
+    .action-select {
+      margin-left: 5px;
+    }
+  }
   .action-item {
     display: flex;
     justify-content: center;
@@ -436,6 +516,13 @@ defineExpose({
     cursor: pointer;
     &:hover {
       background-color: #f5f5f5;
+    }
+    &.disabled {
+      color: #c0c4cc;
+      cursor: not-allowed;
+      &:hover {
+        background-color: transparent;
+      }
     }
   }
   .action-total {
