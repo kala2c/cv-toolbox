@@ -21,10 +21,15 @@
         show-overflow
         :edit-config="editConfig"
         :menu-config="menuConfig"
+        :row-class-name="getRowClassName"
+        :cell-class-name="getCellClassName"
         @edit-activated="handleEditActivated"
         @edit-closed="handleEditClosed"
         @menu-click="handleMenuClick"
+        @cell-click="handleCellClick"
     >
+      <vxe-column type="seq" width="60"></vxe-column>
+<!--      <vxe-column type="checkbox" width="60"></vxe-column>-->
       <template v-for="col in tableStruct" :key="col.field">
         <vxe-column
             :field="col.field"
@@ -161,7 +166,7 @@ const tableRef = ref();
 // 单元格编辑
 const editConfig = {
   mode: 'cell',
-  trigger: 'click',
+  trigger: 'dblclick',
 }
 // 单元格右键操作
 const menuConfig = reactive({
@@ -347,12 +352,11 @@ watch(() => props.tableName, () => {
 const undoList = [];
 
 // 修改的缓存
-let updateCache = {};
+const updateCache = ref({});
 // 新增数据缓存
-const insertCache = [];
+// const insertCache = []; // 目前使用vxe内部的records管理器足够
 // 删除数据缓存
-const deleteCache = [];
-
+const deleteCache = ref({});
 // 单元格编辑
 const getRowSnapshot = rowIndex => {
   const rowData = tableData.value[rowIndex];
@@ -367,7 +371,7 @@ let rowCache = null;
 const handleEditActivated = (evt) => {
   console.log('激活编辑', evt);
   const { rowIndex, row } = evt;
-  if (row.isInsert) return;
+  if (tableRef.value.isInsertByRow(row)) return;
   rowCache = getRowSnapshot(rowIndex);
   console.log('编辑激活，编辑行', rowIndex, '缓存', rowCache);
 }
@@ -375,29 +379,33 @@ const handleEditActivated = (evt) => {
 const handleEditClosed = async (evt) => {
   console.log('编辑结束', evt);
   const { rowIndex, columnIndex, row } = evt;
-  if (row.isInsert) return;
+  if (tableRef.value.isInsertByRow(row)) return;
   const rowData = getRowSnapshot(rowIndex);
   const rowStr = JSON.stringify(rowData);
   if (rowStr !== JSON.stringify(rowCache)) {
+    console.log('数据有变化，准备更新');
     // 单元格缓存模式 ↓↓↓↓↓
-    console.log('数据有变化，添加到缓存');
     // 使用主键作为缓存key
     const cacheKey = tablePrimaryKey.value.map(o => rowCache[o]).join('-');
+    if (deleteCache.value[cacheKey]) {
+      // 待删除数据中存在 则取消删除
+      delete deleteCache.value[cacheKey];
+    }
     const cacheKeyNew = tablePrimaryKey.value.map(o => rowData[o]).join('-');
     const newVal = getRowSnapshot(rowIndex);
-    if (updateCache[cacheKey]) {
-      // 此处可以校验newVal是否等于olaVal，相等从缓存中移除
-      updateCache[cacheKey].newVal = newVal;
+    if (updateCache.value[cacheKey]) {
+      // 此处可以校验newVal是否等于olaVal，相等则从缓存中移除
+      updateCache.value[cacheKey].newVal = newVal;
     } else {
-      updateCache[cacheKey] = {
+      updateCache.value[cacheKey] = {
         oldVal: rowCache,
         newVal: getRowSnapshot(rowIndex)
       };
     }
     // 如果修改了主键值，则缓存key需要更新
     if (cacheKey !== cacheKeyNew) {
-      updateCache[cacheKeyNew] = updateCache[cacheKey];
-      delete updateCache[cacheKey];
+      updateCache.value[cacheKeyNew] = updateCache.value[cacheKey];
+      delete updateCache.value[cacheKey];
     }
     // 单元格缓存模式 ↑↑↑↑↑
 
@@ -415,11 +423,11 @@ const handleEditClosed = async (evt) => {
 }
 
 async function commitUpdate() {
-  console.log('commit更新到数据库，数据集', updateCache)
+  console.log('commit更新到数据库，数据集', updateCache.value)
   // 将updateCache转换为sql语句
   const updateSql = [];
-  for (const key in updateCache) {
-    const { oldVal, newVal } = updateCache[key];
+  for (const key in updateCache.value) {
+    const { oldVal, newVal } = updateCache.value[key];
     // 使用主键作为条件
     const condition = tablePrimaryKey.value.map(o => `${o} = '${oldVal[o]}'`).join(' and ');
     const fieldSqlStr = [];
@@ -436,13 +444,28 @@ async function commitUpdate() {
   console.log('commit到数据库，sql语句', updateSql)
   if (updateSql.length < 1) return;
   await nodeObj.db.query(props.connId, updateSql.join("\n"));
-  updateCache = {};
+  updateCache.value = {};
   showToast('更新数据成功');
 }
 
-// 提交修改到数据库
-const onCommit = async () => {
-  await commitUpdate();
+async function commitDelete() {
+  console.log('commit删除到数据库，数据集', deleteCache.value)
+  // 将deleteCache转换为sql语句
+  const deleteSql = [];
+  for (const key in deleteCache.value) {
+    const row = deleteCache.value[key];
+    // 使用主键作为条件
+    const condition = tablePrimaryKey.value.map(key => `${key} = '${row[key]}'`).join(' and ');
+    deleteSql.push(`delete from ${_t(props.tableName)} where ${condition};`);
+  }
+  console.log('commit到数据库，sql语句', deleteSql)
+  if (deleteSql.length < 1) return;
+  await nodeObj.db.query(props.connId, deleteSql.join("\n"));
+  deleteCache.value = {};
+  showToast('删除数据成功');
+}
+
+async function commitInsert() {
   const insertRecords = tableRef.value.getInsertRecords();
   const insertSql = [];
   for (const row of insertRecords) {
@@ -463,15 +486,105 @@ const onCommit = async () => {
   if (insertSql.length > 0) {
     await nodeObj.db.query(props.connId, insertSql.join("\n"));
     showToast('插入数据成功');
-    queryTable();
   }
 }
 
-const onInsert = () => {
-  tableRef.value.insertAt({ isInsert: true }, -1);
+// 提交修改到数据库
+const onCommit = async () => {
+  await commitUpdate();
+  await commitDelete();
+  await commitInsert();
+  await queryTable();
 }
 
+const onInsert = () => {
+  tableRef.value.insertAt({ isNew: true }, -1);
+}
+
+const selectedRowIndex = ref(-1);
+
 const onDelete = async () => {
+  if (selectedRowIndex.value > -1) {
+    if (selectedRowIndex.value >= tableData.value.length) {
+      // 删除的是新增行
+      const insertRecords = tableRef.value.getInsertRecords();
+      // 选中行都在底部 重新计算id
+      const rIndex = selectedRowIndex.value - tableData.value.length;
+      tableRef.value.remove(insertRecords[rIndex]);
+      return;
+    }
+    const rowData = tableData.value[selectedRowIndex.value];
+    // 使用主键作为索引
+    const key = tablePrimaryKey.value.map(o => rowData[o]).join('-');
+    // 如果编辑数据缓存中存在，则取消编辑状态
+    if (updateCache.value[key]) {
+      const oldVal = updateCache.value[key].oldVal;
+      console.log('取消编辑状态', oldVal)
+      // 重新设置行数据
+      tableRef.value.setRow(rowData, oldVal);
+      delete updateCache.value[key];
+    }
+    deleteCache.value[key] = rowData;
+  }
+}
+
+
+const handleCellClick = (evt) => {
+  const { row, rowIndex, column, columnIndex } = evt;
+  selectedRowIndex.value = rowIndex;
+}
+
+function getRowClassName({ row, rowIndex, $rowIndex }) {
+  if (selectedRowIndex.value === rowIndex) {
+    // 选中行 蓝色
+    return 'bg-blue-light';
+  }
+  const cacheKey = tablePrimaryKey.value.map(o => row[o]).join('-');
+  if (deleteCache.value[cacheKey]) {
+    // 删除行 灰色
+    return 'bg-gray';
+  }
+  if (tableRef.value.isInsertByRow(row)) {
+    // 新增行 绿色
+    return 'bg-green';
+  }
+}
+
+document.addEventListener('click', (evt) => {
+  // 点击表格以外的地方取消选中状态
+  if (!evt.target) {
+    selectedRowIndex.value = -1;
+  }
+  if (!traceElHasClass(evt.target, 'vxe-table')) {
+    setTimeout(() => {
+      selectedRowIndex.value = -1;
+    }, 100);
+  }
+  if (traceElHasClass(evt.target, 'vxe-table--header')) {
+    selectedRowIndex.value = -1;
+  }
+});
+
+function traceElHasClass(el, className) {
+  while (el !== document.body) {
+    if (!el) return false;
+    if (el.classList && el.classList.contains(className)) {
+      return true;
+    }
+    el = el.parentNode;
+  }
+  return false;
+}
+
+function getCellClassName({ row, rowIndex, $rowIndex, column, columnIndex, $columnIndex }) {
+  const cacheKey = tablePrimaryKey.value.map(o => row[o]).join('-');
+  if (updateCache.value[cacheKey]) {
+    const cache = updateCache.value[cacheKey];
+    if (cache.oldVal[column.field] !== cache.newVal[column.field]) {
+      // 待修改的格子 深蓝色
+      return 'bg-blue';
+    }
+  }
 }
 
 // Add these computed properties in the script section:
@@ -490,6 +603,18 @@ defineExpose({
 </script>
 
 <style lang="scss">
+.bg-green {
+  background-color: #dff0d8!important;
+}
+.bg-blue-light {
+  background-color: #d9edf7!important;
+}
+.bg-gray {
+  background-color: #dedede!important;
+}
+.bg-blue {
+  background-color: #90c2db!important;
+}
 .action-block {
   margin-top: 5px;
   display: flex;
