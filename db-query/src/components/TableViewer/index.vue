@@ -1,24 +1,19 @@
 <template>
-  <div class="table-viewer">
-    <div class="input-block">
-      <vxe-input class="filter-input" v-model="actionParam.whereSql" placeholder="输入where子句">
-        <template #prefix>
-          <span class="input-prefix"><vxe-icon name="search"></vxe-icon> WHERE</span>
-        </template>
-      </vxe-input>
-      <vxe-input class="filter-input" v-model="actionParam.orderSql" placeholder="输入order子句">
-        <template #prefix>
-          <span class="input-prefix"><vxe-icon name="sort"></vxe-icon> ORDER BY</span>
-        </template>
-      </vxe-input>
-      <vxe-button class="filter-btn">查询</vxe-button>
-    </div>
-    <vxe-table
+  <div class="table-viewer" :style="{ height: props.height }">
+    <!-- where子句和order子句 -->
+    <input-block 
+      v-model:whereSql="actionParam.whereSql"
+      v-model:orderSql="actionParam.orderSql" 
+      @keyupEnter="execQuery"
+    ></input-block>
+    <div class="scroll-container">
+      <vxe-table
         ref="tableRef"
         :data="tableData"
         stripe
         border
         show-overflow
+        height="100%"
         :edit-config="editConfig"
         :menu-config="menuConfig"
         :row-class-name="getRowClassName"
@@ -27,68 +22,52 @@
         @edit-closed="handleEditClosed"
         @menu-click="handleMenuClick"
         @cell-click="handleCellClick"
-    >
-      <vxe-column type="seq" width="60"></vxe-column>
-<!--      <vxe-column type="checkbox" width="60"></vxe-column>-->
-      <template v-for="col in tableStruct" :key="col.field">
-        <vxe-column
-            :field="col.field"
-            :title="col.title"
-            :edit-render="{ enabled: true }"
-        >
-          <template #default="{ row, column, rowIndex, columnIndex }">
-            <!-- 空值 -->
-            <template v-if="row[col.field] === null || row[col.field] === undefined">
-              <span class="null-value">NULL</span>
+      >
+        <!-- <vxe-column type="seq" width="60"></vxe-column> -->
+        <template v-for="col in tableStruct" :key="col.field">
+          <vxe-column
+              :field="col.field"
+              :title="col.title"
+              :edit-render="{ enabled: true }"
+          >
+            <template #default="{ row, column, rowIndex, columnIndex }">
+              <!-- 空值 -->
+              <template v-if="row[col.field] === null || row[col.field] === undefined">
+                <span class="null-value">NULL</span>
+              </template>
+              <!-- 日期时间 -->
+              <!-- <template v-else-if="col.type === 'datetime'">-->
+              <!-- {{ formatDateTime(row[col.field]) }}-->
+              <!-- </template>-->
+              <!-- 其他 -->
+              <template v-else>
+                {{ row[col.field] }}
+              </template>
             </template>
-            <!-- 日期时间 -->
-            <!-- <template v-else-if="col.type === 'datetime'">-->
-            <!-- {{ formatDateTime(row[col.field]) }}-->
-            <!-- </template>-->
-            <!-- 其他 -->
-            <template v-else>
-              {{ row[col.field] }}
+            <template #edit="{ row, column, rowIndex, columnIndex }">
+              <template v-if="col.type === 'datetime'">
+                <vxe-date-picker v-model="row[col.field]" type="datetime"></vxe-date-picker>
+              </template>
+              <template v-else>
+                <vxe-input v-model="row[col.field]"></vxe-input>
+              </template>
             </template>
-          </template>
-          <template #edit="{ row, column, rowIndex, columnIndex }">
-            <template v-if="col.type === 'datetime'">
-              <vxe-date-picker v-model="row[col.field]" type="datetime"></vxe-date-picker>
-            </template>
-            <template v-else>
-              <vxe-input v-model="row[col.field]"></vxe-input>
-            </template>
-          </template>
-        </vxe-column>
-      </template>
-    </vxe-table>
+          </vxe-column>
+        </template>
+      </vxe-table>
+    </div>
     <div class="action-block">
       <div class="left">
-        <div class="action-item" @click="goFirstPage" :class="{ disabled: isFirstPage }">
-          <vxe-icon name="home-page"></vxe-icon>
-        </div>
-        <div class="action-item" @click="goPrevPage" :class="{ disabled: isFirstPage }">
-          <vxe-icon name="arrow-left"></vxe-icon>
-        </div>
-        <edit-area-div 
-          class="action-input" 
-          v-model="actionParam.currentPage"
-          @change="handlePageInputChange">
-        </edit-area-div>
-        <div class="action-item" @click="goNextPage" :class="{ disabled: isLastPage }">
-          <vxe-icon name="arrow-right"></vxe-icon>
-        </div>
-        <div class="action-item" @click="goLastPage" :class="{ disabled: isLastPage }">
-          <vxe-icon name="end-page"></vxe-icon>
-        </div>
-        <vxe-select class="action-select" v-model="actionParam.pageSize" @change="handlePageSizeChange">
-          <vxe-option v-for="size in [100, 200, 500, 1000]" :key="size" :value="size" :label="size"></vxe-option>
-        </vxe-select>
-        <div class="action-total">
-          总数 {{ actionParam.total }}
-        </div>
+        <pager
+          v-model="actionParam"
+          @change="queryTable"
+        />
       </div>
       <div class="right">
-        <div class="action-item">
+        <div class="action-item" @click="execQueryAndClear">
+          <vxe-icon name="undo"></vxe-icon>
+        </div>
+        <div class="action-item" @click="queryTable">
           <vxe-icon name="refresh"></vxe-icon>
         </div>
         <div class="action-item" @click="onInsert">
@@ -96,9 +75,6 @@
         </div>
         <div class="action-item" @click="onDelete">
           <vxe-icon name="minus"></vxe-icon>
-        </div>
-        <div class="action-item">
-          <vxe-icon name="undo"></vxe-icon>
         </div>
         <div class="action-item" @click="onCommit">
           <vxe-icon name="arrows-up"></vxe-icon>
@@ -122,11 +98,13 @@
 </template>
 
 <script setup>
-import {computed, reactive, ref, watch} from 'vue';
-import {VxeUI} from 'vxe-pc-ui';
+import { computed, reactive, ref, watch} from 'vue';
+import { VxeUI } from 'vxe-pc-ui';
 import {_t, formatDateTime, showToast} from "@/utils/common";
 import TextEditor from "@/components/TextEditor.vue";
 import EditAreaDiv from "@/components/EditAreaDiv.vue";
+import InputBlock from "./InputBlock.vue";
+import Pager from './Pager.vue';
 
 const props = defineProps({
   connId: {
@@ -140,12 +118,13 @@ const props = defineProps({
   tableName: {
     type: String,
     required: true
+  },
+  height: {
+    type: String,
+    default: '500px'
   }
 });
 
-const onTest = () => {
-  console.log(VxeUI);
-}
 // 抽屉式编辑器
 const editData = reactive({
   rowIndex: -1,
@@ -238,7 +217,13 @@ const actionParam = reactive({
   whereSql: '',
   orderSql: '',
 });
+// 查询表格数据 携带当前分页参数
 const queryTable = async () => {
+  // 查询新数据时清除缓存
+  clearCache();
+  // 未连接不执行查询
+  if (!props.connId) return;
+  VxeUI.loading.open();
   let sql = `select * from ${_t(props.tableName)}`;
   let totalSql = `select count(1) as total from ${_t(props.tableName)}`;
   if (actionParam.whereSql) {
@@ -265,59 +250,37 @@ const queryTable = async () => {
     });
     return row;
   });
+  VxeUI.loading.close();
 }
 
-// 分页相关 ↓↓↓↓↓
-const goFirstPage = () => {
-  if (actionParam.currentPage !== 1) {
-    actionParam.currentPage = 1;
-    queryTable();
-  }
+// 清除全部待提交的编辑
+const clearCache = () => {
+  deleteCache.value = {};
+  updateCache.value = {};
+  tableRef.value.removeInsertRow();
 }
 
-const goPrevPage = () => {
-  if (actionParam.currentPage > 1) {
-    actionParam.currentPage--;
-    queryTable();
-  }
-}
-
-const goNextPage = () => {
-  const maxPage = Math.ceil(actionParam.total / actionParam.pageSize);
-  if (actionParam.currentPage < maxPage) {
-    actionParam.currentPage++;
-    queryTable();
-  }
-}
-
-const goLastPage = () => {
-  const maxPage = Math.ceil(actionParam.total / actionParam.pageSize);
-  if (actionParam.currentPage !== maxPage) {
-    actionParam.currentPage = maxPage;
-    queryTable();
-  }
-}
-
-const handlePageInputChange = ({ value }) => {
-  const maxPage = Math.ceil(actionParam.total / actionParam.pageSize);
-  const newPage = parseInt(value);
-  if (isNaN(newPage) || newPage < 1) {
-    actionParam.currentPage = 1;
-  } else if (newPage > maxPage) {
-    actionParam.currentPage = maxPage;
-  } else {
-    actionParam.currentPage = newPage;
-  }
-  queryTable();
-}
-
-const handlePageSizeChange = ({ value }) => {
-  // console.log('分页大小变化', value);
+const clearAll = () => {
+  tableData.value = [];
+  tableStruct.value = [];
   actionParam.currentPage = 1;
-  actionParam.pageSize = value;
+  actionParam.whereSql = '';
+  actionParam.orderSql = '';
+  clearCache();
+}
+
+// 执行查询
+const execQuery = () => {
+  if (!props.connId) return;
   queryTable();
 }
-// 分页相关 ↑↑↑↑↑
+
+// 执行查询并清除缓存
+const execQueryAndClear = () => {
+  if (!props.connId) return;
+  clearCache();
+  queryTable();
+}
 
 // 表格基本信息加载
 const getTableStruct = async () => {
@@ -347,9 +310,6 @@ watch(() => props.tableName, () => {
 }, {
   immediate: true
 });
-
-// undo历史记录
-const undoList = [];
 
 // 修改的缓存
 const updateCache = ref({});
@@ -491,6 +451,7 @@ async function commitInsert() {
 
 // 提交修改到数据库
 const onCommit = async () => {
+  if (!props.connId) return;
   await commitUpdate();
   await commitDelete();
   await commitInsert();
@@ -498,12 +459,14 @@ const onCommit = async () => {
 }
 
 const onInsert = () => {
+  if (!props.connId) return;
   tableRef.value.insertAt({ isNew: true }, -1);
 }
 
 const selectedRowIndex = ref(-1);
 
 const onDelete = async () => {
+  if (!props.connId) return;
   if (selectedRowIndex.value > -1) {
     if (selectedRowIndex.value >= tableData.value.length) {
       // 删除的是新增行
@@ -587,18 +550,14 @@ function getCellClassName({ row, rowIndex, $rowIndex, column, columnIndex, $colu
   }
 }
 
-// Add these computed properties in the script section:
-const isFirstPage = computed(() => actionParam.currentPage === 1);
-const isLastPage = computed(() => {
-  const maxPage = Math.ceil(actionParam.total / actionParam.pageSize);
-  return actionParam.currentPage >= maxPage;
-});
+
 
 /**
  * 暴露方法
  */
 defineExpose({
   initTable,
+  clearAll,
 });
 </script>
 
@@ -625,7 +584,8 @@ defineExpose({
   }
   .left {
     .action-item {
-      width: 26px;
+      width: 30px;
+      font-size: 20px;
     }
     .action-select {
       margin-left: 5px;
@@ -679,5 +639,18 @@ defineExpose({
 .null-value {
   color: #aaaaaa;
   font-style: italic;
+}
+.table-viewer {  
+  .input-block {
+    height: 34px;
+  }
+  
+  .scroll-container {
+    height: calc(100% - 75px);
+  }
+  
+  .action-block {
+    height: 34px;
+  }
 }
 </style>

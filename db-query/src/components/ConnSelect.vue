@@ -1,39 +1,50 @@
 <template>
   <div class="conn-select">
-    <vxe-select v-model="currentTestConfig" @change="handleConfigListChange">
-      <vxe-option
-          v-for="config in testConfigList"
-          :key="config.name"
-          :label="config.name"
-          :value="config.name"
-      ></vxe-option>
-    </vxe-select>
-    <div class="params-block">
-      <vxe-input v-model="config.host"></vxe-input>
-      <vxe-input v-model="config.port"></vxe-input>
-      <vxe-input v-model="config.username"></vxe-input>
-      <vxe-input v-model="config.password"></vxe-input>
-      <vxe-button @click="createDbConn">连接</vxe-button>
-    </div>
-    <div class="select-block">
-      选择数据库
-      <vxe-select v-model="config.currentDatabase" :data="databaseList" @change="changeDb">
-        <vxe-option v-for="item in databaseList" :key="item.value" :label="item.label" :value="item.value"></vxe-option>
-      </vxe-select>
-      <template v-if="showTable">
-        选择表
-        <vxe-select v-model="config.currentTable" :data="tableList" @change="changeTable">
-          <vxe-option v-for="item in tableList" :key="item.value" :label="item.label" :value="item.value"></vxe-option>
+    <div class="config-row">
+      <div>
+        <vxe-select class="config-select" v-model="currentConfigStore" @change="handleConfigListChange">
+          <vxe-option
+              v-for="config in configListStore"
+              :key="config.name"
+              :label="config.name"
+              :value="config.name"
+          ></vxe-option>
         </vxe-select>
-      </template>
+        <span class="conn-status" :class="connectionStatus"></span>
+        <vxe-button @click="showConfig = !showConfig">
+          {{ showConfig ? '收起' : '编辑' }}
+        </vxe-button>
+        <vxe-button @click="createDbConn">连接</vxe-button> 
+      </div>
+      <div class="select-inline">
+        <span>数据库</span>
+        <vxe-select class="select-item" v-model="config.currentDatabase" :data="databaseList" @change="changeDb">
+          <vxe-option v-for="item in databaseList" :key="item.value" :label="item.label" :value="item.value"></vxe-option>
+        </vxe-select>
+        
+        <template v-if="showTable">
+          <span>表</span>
+          <vxe-select class="select-item" v-model="config.currentTable" :data="tableList" @change="changeTable">
+            <vxe-option v-for="item in tableList" :key="item.value" :label="item.label" :value="item.value"></vxe-option>
+          </vxe-select>
+        </template>
+      </div>
     </div>
+    <div v-show="showConfig" class="params-row">
+        <vxe-input v-model="config.name" @input="onNameInput" placeholder="名称"></vxe-input>
+        <vxe-input v-model="config.host" placeholder="主机"></vxe-input>
+        <vxe-input v-model="config.port" placeholder="端口"></vxe-input>
+        <vxe-input v-model="config.username" placeholder="用户名"></vxe-input>
+        <vxe-input v-model="config.password" placeholder="密码"></vxe-input>
+        <!-- <vxe-button @click="saveConfig">保存</vxe-button> -->
+      </div>
   </div>
 </template>
 
 <script setup>
 import { VxeUI } from 'vxe-pc-ui';
 import { reactive, ref, watch } from "vue";
-import { _t } from "@/utils/common";
+import { _t, showToast } from "@/utils/common";
 
 const props = defineProps({
   modelValue: {
@@ -52,7 +63,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['update:modelValue', 'change']);
+const emit = defineEmits(['update:modelValue', 'changeTable', 'changeConn']);
 
 const config = reactive({
   name: '',
@@ -64,40 +75,86 @@ const config = reactive({
   currentDatabase: '',
   currentTable: '',
 });
+
+// 添加标记，用于判断用户是否手动编辑过name
+const isNameManuallyEdited = ref(false);
+// 手动编辑name时，设置标记
+const onNameInput = () => {
+  isNameManuallyEdited.value = true;
+};
+// 监听相关字段变化，自动生成name
+watch([() => config.username, () => config.host, () => config.port], () => {
+  if (!isNameManuallyEdited.value) {
+    config.name = `${config.username}@${config.host}:${config.port}`;
+  }
+});
+
 const connId = ref('');
 
 const databaseList = ref([]);
 const tableList = ref([]);
 
-const localConfig = localStorage.getItem('config-cache');
-if (localConfig) {
-  config.value = JSON.parse(localConfig);
+const configListStore = ref([
+  { name: '1.26-helloworld', host: '121.196.198.72', port: '7002', username: 'hello-world', password: 'mx42LjBaBTkCBpT3' },
+  { name: '数图mysql', host: '192.168.3.240', port: '3306', username: 'root', password: 'root' },
+]);
+configListStore.value.push({
+  name: '新链接',
+  host: 'localhost',
+  port: '3306',
+  username: '',
+  password: '',
+});
+
+// 修改：从localStorage读取已保存的配置列表
+const savedConfigs = localStorage.getItem('config-list');
+if (savedConfigs) {
+  configListStore.value = JSON.parse(savedConfigs);
 }
-// config变化时，将数据存储到localStorage
-watch(() => config.value, (newVal) => {
-  localStorage.setItem('config-cache', JSON.stringify(newVal));
-}, { deep: true });
+
+const showConfig = ref(false);
+
+// Add connection status ref
+const connectionStatus = ref('disconnected');
 
 async function createDbConn() {
-  databaseList.value = [];
-  tableList.value = [];
-  connId.value = await nodeObj.db.createConnection({
-    host: config.host,
-    port: config.port,
-    username: config.username,
-    password: config.password
-  })
-  const res = await nodeObj.db.execSql(connId.value, 'show databases');
-  const databases = res.result;
-  databases.forEach(o => {
-    const dbName = o.Database;
-    databaseList.value.push({
-      value: dbName,
-      label: dbName,
+  // 检查参数是否完整
+  if (!config.host || !config.port || !config.username) {
+    showToast('请输入完整参数', 'error');
+    return;
+  }
+  try {
+    connectionStatus.value = 'connecting';
+    databaseList.value = [];
+    tableList.value = [];
+    config.currentDatabase = '';
+    config.currentTable = '';
+    tableList.value = [];
+    connId.value = await nodeObj.db.createConnection({
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      password: config.password
+    })
+    const res = await nodeObj.db.execSql(connId.value, 'show databases');
+    const databases = res.result;
+    databases.forEach(o => {
+      const dbName = o.Database;
+      databaseList.value.push({
+        value: dbName,
+        label: dbName,
+      });
     });
-  });
-  config.currentDatabase = databaseList.value[0].value;
-  await changeDb();
+    if (databaseList.value.length > 0) {
+      config.currentDatabase = databaseList.value[0].value;
+      await changeDb();
+    }
+    connectionStatus.value = 'connected';
+    saveConfig();
+  } catch (error) {
+    console.error('Connection failed:', error);
+    connectionStatus.value = 'error';
+  }
 }
 
 const changeDb = async () => {
@@ -129,28 +186,125 @@ const changeTable = () => {
     database: config.currentDatabase,
     table: config.currentTable
   };
-  emit('change', data);
+  emit('changeTable', data);
   emit('update:modelValue', data);
 }
 
-// 测试用的链接
-const currentTestConfig = ref('');
-const testConfigList = ref([
-  { name: '1.26-helloworld', host: '121.196.198.72', port: '7002', username: 'hello-world', password: 'mx42LjBaBTkCBpT3' },
-  { name: '数图mysql', host: '192.168.3.240', port: '3306', username: 'root', password: 'root' },
-]);
+// 链接存储
+const currentConfigStore = ref('');
 const handleConfigListChange = () => {
-  const testConfig = testConfigList.value.find(o => o.name === currentTestConfig.value);
-  config.host = testConfig.host;
-  config.port = testConfig.port;
-  config.username = testConfig.username;
-  config.password = testConfig.password;
-  createDbConn();
+  const configStore = configListStore.value.find(o => o.name === currentConfigStore.value);
+  config.name = configStore.name;
+  config.host = configStore.host;
+  config.port = configStore.port;
+  config.username = configStore.username;
+  config.password = configStore.password;
+  // 如果name不符合生成规则，则重置标记
+  const isNameMatch = config.name === `${config.username}@${config.host}:${config.port}`;
+  if (config.name === '新链接') {
+    isNameManuallyEdited.value = false;
+    config.name = '';
+    showConfig.value = true;
+  } else {
+    isNameManuallyEdited.value = isNameMatch;
+  }
+  connectionStatus.value = 'disconnected';
+  emit('changeConn', config);
 }
-currentTestConfig.value = testConfigList.value[0].name;
+currentConfigStore.value = configListStore.value[0].name;
 handleConfigListChange();
+
+// 添加：保存配置列表的方法
+const saveConfig = () => {
+  // 检查是否存在同名配置
+  const existingConfig = configListStore.value.find(o => o.name === config.name);
+  if (existingConfig) {
+    // 更新已存在的配置
+    Object.assign(existingConfig, {
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      password: config.password
+    });
+  } else {
+    // 添加新配置
+    configListStore.value.push({
+      name: config.name,
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      password: config.password
+    });
+  }
+  // 保存到localStorage
+  localStorage.setItem('config-list', JSON.stringify(configListStore.value));
+}
 </script>
 
 <style lang="scss">
+.conn-select {
+  .config-row {
+    display: flex;
+    align-items: center;
+    // justify-content: space-between;
+    // gap: 8px;
+    // flex-wrap: wrap;
+    .config-select {
+      width: 200px;
+      margin-right: 8px;
+    }
+  }
 
+  .params-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    .vxe-input {
+      width: 150px;
+    }
+  }
+
+  .select-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 15px;
+    // margin-left: auto;
+    span {
+      white-space: nowrap;
+    }
+    .select-item {
+      width: 200px;
+    }
+  }
+
+  .conn-status {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    
+    &.disconnected {
+      background-color: #999;
+    }
+    
+    &.connecting {
+      background-color: #f0ad4e;
+    }
+    
+    &.connected {
+      background-color: #5cb85c;
+    }
+    
+    &.error {
+      background-color: #d9534f;
+    }
+  }
+}
 </style>
