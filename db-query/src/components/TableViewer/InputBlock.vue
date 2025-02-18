@@ -53,3 +53,19 @@ watch(() => props.orderSql, (val) => {
   model.orderSql = val;
 });
 </script>
+
+<style lang="scss" scoped>
+.input-block {
+  display: flex;
+  .input-prefix {
+    color: #666666;
+  }
+  .filter-input {
+    flex: 1;
+  }
+  .filter-btn {
+    margin-left: 0!important;
+  }
+}
+</style>
+

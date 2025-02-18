@@ -64,21 +64,11 @@
         />
       </div>
       <div class="right">
-        <div class="action-item" @click="execQueryAndClear">
-          <vxe-icon name="undo"></vxe-icon>
-        </div>
-        <div class="action-item" @click="queryTable">
-          <vxe-icon name="refresh"></vxe-icon>
-        </div>
-        <div class="action-item" @click="onInsert">
-          <vxe-icon name="add"></vxe-icon>
-        </div>
-        <div class="action-item" @click="onDelete">
-          <vxe-icon name="minus"></vxe-icon>
-        </div>
-        <div class="action-item" @click="onCommit">
-          <vxe-icon name="arrows-up"></vxe-icon>
-        </div>
+        <action-item icon="undo" @click="execQueryAndClear" title="还原到初始状态" />
+        <action-item icon="refresh" @click="queryTable" title="刷新数据" />
+        <action-item icon="add" @click="onInsert" title="新增行" />
+        <action-item icon="minus" @click="onDelete" title="删除行" />
+        <action-item icon="arrows-up" @click="onCommit" title="提交修改" />
       </div>
     </div>
 
@@ -102,10 +92,11 @@ import { computed, reactive, ref, watch} from 'vue';
 import { VxeUI } from 'vxe-pc-ui';
 import {_t, formatDateTime, showToast} from "@/utils/common";
 import TextEditor from "@/components/TextEditor.vue";
-import EditAreaDiv from "@/components/EditAreaDiv.vue";
 import InputBlock from "./InputBlock.vue";
 import Pager from './Pager.vue';
+import ActionItem from './ActionItem.vue';
 
+// 组件参数
 const props = defineProps({
   connId: {
     type: String,
@@ -125,29 +116,16 @@ const props = defineProps({
   }
 });
 
-// 抽屉式编辑器
-const editData = reactive({
-  rowIndex: -1,
-  columnIndex: -1,
-  cellValueRaw: '',
-  cellValue: '',
-});
-const editPopupShow = ref(false);
-const handleEditPopupShow = () => {
-  console.log('打开编辑器');
-}
-const handleEditPopupConfirm = () => {
-  console.log('保存编辑器');
-}
-
+// 表格实例
 const tableRef = ref();
 
-// 单元格编辑
+// vxe-table相关 ↓↓↓↓↓
+// 单元格编辑配置
 const editConfig = {
   mode: 'cell',
   trigger: 'dblclick',
 }
-// 单元格右键操作
+// 单元格右键配置
 const menuConfig = reactive({
   body: {
     options: [
@@ -159,8 +137,7 @@ const menuConfig = reactive({
     ]
   }
 });
-
-// 右键操作
+// 右键操作回调
 const handleMenuClick = (evt) => {
   const { rowIndex, columnIndex, menu } = evt;
   const rowData = getRowSnapshot(rowIndex);
@@ -179,22 +156,41 @@ const handleMenuClick = (evt) => {
     editPopupShow.value = true;
   }
 }
+// vxe-table相关 ↑↑↑↑↑
+
+// 单元格编辑器相关 ↓↓↓↓↓
+const editData = reactive({
+  rowIndex: -1,
+  columnIndex: -1,
+  cellValueRaw: '',
+  cellValue: '',
+});
+const editPopupShow = ref(false);
+const handleEditPopupShow = () => {
+  console.log('打开编辑器');
+}
+const handleEditPopupConfirm = () => {
+  console.log('保存编辑器');
+}
+// 单元格编辑器相关 ↑↑↑↑↑
+
+// ---- 表格数据查询相关 ↓↓↓↓↓
 
 // 表格基本信息
 const tableData = ref([]);
 const tableStruct = ref([]);
+// 表格主键数组
 const tablePrimaryKey = computed(() => {
   return tableStruct.value.filter(o => o.key === 'PRI').map(o => o.field);
 });
-const tableStructMap = computed(() => {
-  const result = {};
-  tableStruct.value.forEach(o => {
-    result[o.field] = o;
-  });
-});
-/**
- * 表格初始化
- */
+// const tableStructMap = computed(() => {
+//   const result = {};
+//   tableStruct.value.forEach(o => {
+//     result[o.field] = o;
+//   });
+// });
+
+// 表格初始化
 const initTable = async () => {
   console.log('初始化表格', JSON.stringify(props));
   const connInfo = await nodeObj.db.getConnInfo(props.connId);
@@ -205,11 +201,10 @@ const initTable = async () => {
   }
   // 获取表结构
   await getTableStruct();
-
   // 执行数据查询
   await queryTable();
 }
-
+// 表格查询参数
 const actionParam = reactive({
   currentPage: 1,
   pageSize: 200,
@@ -217,7 +212,13 @@ const actionParam = reactive({
   whereSql: '',
   orderSql: '',
 });
-// 查询表格数据 携带当前分页参数
+// 清除查询参数
+function clearActionParam() {
+  actionParam.currentPage = 1;
+  actionParam.whereSql = '';
+  actionParam.orderSql = '';
+}
+// 查询表格数据
 const queryTable = async () => {
   // 查询新数据时清除缓存
   clearCache();
@@ -252,21 +253,11 @@ const queryTable = async () => {
   });
   VxeUI.loading.close();
 }
-
 // 清除全部待提交的编辑
 const clearCache = () => {
   deleteCache.value = {};
   updateCache.value = {};
   tableRef.value.removeInsertRow();
-}
-
-const clearAll = () => {
-  tableData.value = [];
-  tableStruct.value = [];
-  actionParam.currentPage = 1;
-  actionParam.whereSql = '';
-  actionParam.orderSql = '';
-  clearCache();
 }
 
 // 执行查询
@@ -278,6 +269,7 @@ const execQuery = () => {
 // 执行查询并清除缓存
 const execQueryAndClear = () => {
   if (!props.connId) return;
+  clearActionParam();
   clearCache();
   queryTable();
 }
@@ -311,13 +303,17 @@ watch(() => props.tableName, () => {
   immediate: true
 });
 
+// ---- 表格数据查询相关 ↑↑↑↑↑
+
+// ---- 表格数据操作相关 ↓↓↓↓↓
+
 // 修改的缓存
 const updateCache = ref({});
 // 新增数据缓存
 // const insertCache = []; // 目前使用vxe内部的records管理器足够
 // 删除数据缓存
 const deleteCache = ref({});
-// 单元格编辑
+// 获取行快照
 const getRowSnapshot = rowIndex => {
   const rowData = tableData.value[rowIndex];
   const map = {};
@@ -328,6 +324,7 @@ const getRowSnapshot = rowIndex => {
 }
 
 let rowCache = null;
+// 单元格编辑激活
 const handleEditActivated = (evt) => {
   console.log('激活编辑', evt);
   const { rowIndex, row } = evt;
@@ -335,7 +332,7 @@ const handleEditActivated = (evt) => {
   rowCache = getRowSnapshot(rowIndex);
   console.log('编辑激活，编辑行', rowIndex, '缓存', rowCache);
 }
-
+// 单元格编辑结束
 const handleEditClosed = async (evt) => {
   console.log('编辑结束', evt);
   const { rowIndex, columnIndex, row } = evt;
@@ -382,6 +379,40 @@ const handleEditClosed = async (evt) => {
   }
 }
 
+// 新增行
+const onInsert = () => {
+  if (!props.connId) return;
+  tableRef.value.insertAt({ isNew: true }, -1);
+}
+
+// 删除行
+const onDelete = async () => {
+  if (!props.connId) return;
+  if (selectedRowIndex.value > -1) {
+    if (selectedRowIndex.value >= tableData.value.length) {
+      // 删除的是新增行
+      const insertRecords = tableRef.value.getInsertRecords();
+      // 选中行都在底部 重新计算id
+      const rIndex = selectedRowIndex.value - tableData.value.length;
+      tableRef.value.remove(insertRecords[rIndex]);
+      return;
+    }
+    const rowData = tableData.value[selectedRowIndex.value];
+    // 使用主键作为索引
+    const key = tablePrimaryKey.value.map(o => rowData[o]).join('-');
+    // 如果编辑数据缓存中存在，则取消编辑状态
+    if (updateCache.value[key]) {
+      const oldVal = updateCache.value[key].oldVal;
+      console.log('取消编辑状态', oldVal)
+      // 重新设置行数据
+      tableRef.value.setRow(rowData, oldVal);
+      delete updateCache.value[key];
+    }
+    deleteCache.value[key] = rowData;
+  }
+}
+
+// 提交更新到数据库
 async function commitUpdate() {
   console.log('commit更新到数据库，数据集', updateCache.value)
   // 将updateCache转换为sql语句
@@ -408,6 +439,7 @@ async function commitUpdate() {
   showToast('更新数据成功');
 }
 
+// 提交删除到数据库
 async function commitDelete() {
   console.log('commit删除到数据库，数据集', deleteCache.value)
   // 将deleteCache转换为sql语句
@@ -425,6 +457,7 @@ async function commitDelete() {
   showToast('删除数据成功');
 }
 
+// 提交新增到数据库
 async function commitInsert() {
   const insertRecords = tableRef.value.getInsertRecords();
   const insertSql = [];
@@ -458,44 +491,37 @@ const onCommit = async () => {
   await queryTable();
 }
 
-const onInsert = () => {
-  if (!props.connId) return;
-  tableRef.value.insertAt({ isNew: true }, -1);
-}
+// ---- 表格数据操作相关 ↑↑↑↑↑
 
 const selectedRowIndex = ref(-1);
-
-const onDelete = async () => {
-  if (!props.connId) return;
-  if (selectedRowIndex.value > -1) {
-    if (selectedRowIndex.value >= tableData.value.length) {
-      // 删除的是新增行
-      const insertRecords = tableRef.value.getInsertRecords();
-      // 选中行都在底部 重新计算id
-      const rIndex = selectedRowIndex.value - tableData.value.length;
-      tableRef.value.remove(insertRecords[rIndex]);
-      return;
-    }
-    const rowData = tableData.value[selectedRowIndex.value];
-    // 使用主键作为索引
-    const key = tablePrimaryKey.value.map(o => rowData[o]).join('-');
-    // 如果编辑数据缓存中存在，则取消编辑状态
-    if (updateCache.value[key]) {
-      const oldVal = updateCache.value[key].oldVal;
-      console.log('取消编辑状态', oldVal)
-      // 重新设置行数据
-      tableRef.value.setRow(rowData, oldVal);
-      delete updateCache.value[key];
-    }
-    deleteCache.value[key] = rowData;
-  }
-}
-
-
 const handleCellClick = (evt) => {
   const { row, rowIndex, column, columnIndex } = evt;
   selectedRowIndex.value = rowIndex;
 }
+function traceElHasClass(el, className) {
+  while (el !== document.body) {
+    if (!el) return false;
+    if (el.classList && el.classList.contains(className)) {
+      return true;
+    }
+    el = el.parentNode;
+  }
+  return false;
+}
+document.addEventListener('click', (evt) => {
+  // 点击表格以外的地方取消选中状态
+  if (!evt.target) {
+    selectedRowIndex.value = -1;
+  }
+  if (!traceElHasClass(evt.target, 'vxe-table')) {
+    setTimeout(() => {
+      selectedRowIndex.value = -1;
+    }, 100);
+  }
+  if (traceElHasClass(evt.target, 'vxe-table--header')) {
+    selectedRowIndex.value = -1;
+  }
+});
 
 function getRowClassName({ row, rowIndex, $rowIndex }) {
   if (selectedRowIndex.value === rowIndex) {
@@ -513,32 +539,6 @@ function getRowClassName({ row, rowIndex, $rowIndex }) {
   }
 }
 
-document.addEventListener('click', (evt) => {
-  // 点击表格以外的地方取消选中状态
-  if (!evt.target) {
-    selectedRowIndex.value = -1;
-  }
-  if (!traceElHasClass(evt.target, 'vxe-table')) {
-    setTimeout(() => {
-      selectedRowIndex.value = -1;
-    }, 100);
-  }
-  if (traceElHasClass(evt.target, 'vxe-table--header')) {
-    selectedRowIndex.value = -1;
-  }
-});
-
-function traceElHasClass(el, className) {
-  while (el !== document.body) {
-    if (!el) return false;
-    if (el.classList && el.classList.contains(className)) {
-      return true;
-    }
-    el = el.parentNode;
-  }
-  return false;
-}
-
 function getCellClassName({ row, rowIndex, $rowIndex, column, columnIndex, $columnIndex }) {
   const cacheKey = tablePrimaryKey.value.map(o => row[o]).join('-');
   if (updateCache.value[cacheKey]) {
@@ -550,7 +550,14 @@ function getCellClassName({ row, rowIndex, $rowIndex, column, columnIndex, $colu
   }
 }
 
-
+// 清除组件全部数据
+function clearAll() {
+  tableData.value = [];
+  tableStruct.value = [];
+  selectedRowIndex.value = -1;
+  clearActionParam();
+  clearCache();
+}
 
 /**
  * 暴露方法
@@ -582,60 +589,8 @@ defineExpose({
     display: flex;
     align-items: center;
   }
-  .left {
-    .action-item {
-      width: 30px;
-      font-size: 20px;
-    }
-    .action-select {
-      margin-left: 5px;
-    }
-  }
-  .action-item {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 32px;
-    height: 34px;
-    font-size: 18px;
-    cursor: pointer;
-    &:hover {
-      background-color: #f5f5f5;
-    }
-    &.disabled {
-      color: #c0c4cc;
-      cursor: not-allowed;
-      &:hover {
-        background-color: transparent;
-      }
-    }
-  }
-  .action-total {
-    height: 34px;
-    display: flex;
-    align-items: center;
-    margin-left: 5px;
-    margin-right: 10px;
-  }
-  //.action-input {
-  //  width: 30px;
-  //}
-  .action-select {
-    width: 80px;
-  }
 }
-.input-block {
-  display: flex;
-  .input-prefix {
-    color: #666666;
-  }
-  .filter-input {
-    flex: 1;
-  }
-  .filter-btn {
-    margin-left: 0!important;
-  }
-}
+
 .null-value {
   color: #aaaaaa;
   font-style: italic;
